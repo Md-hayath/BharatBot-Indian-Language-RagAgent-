@@ -1,7 +1,7 @@
 import re
 import numpy as np
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from config.settings import CHUNK_SIZE, CHUNK_OVERLAP, SEMANTIC_CHUNK_THRESHOLD
+from config.settings import CHUNK_SIZE, CHUNK_OVERLAP, SEMANTIC_BREAKPOINT_PERCENTILE
 
 MIN_CHUNK_LENGTH = 20
 
@@ -26,13 +26,28 @@ def _cosine_similarity(a, b) -> float:
 
 
 def _group_by_similarity(sentences: list, embeddings) -> list:
+    # A fixed similarity threshold doesn't transfer across embedding models -
+    # e.g. text-embedding-3-small's consecutive-sentence similarity often
+    # sits below 0.5 even within one topic. Instead, treat only the most
+    # dissimilar transitions *within this document* as topic breaks: compute
+    # every consecutive-sentence distance, then split at the ones in the top
+    # (100 - percentile)% - self-calibrating regardless of the embedding
+    # model's absolute similarity scale.
+    distances = [
+        1 - _cosine_similarity(embeddings[i - 1], embeddings[i])
+        for i in range(1, len(embeddings))
+    ]
+    if not distances:
+        return [sentences[0]]
+
+    breakpoint_distance = float(np.percentile(distances, SEMANTIC_BREAKPOINT_PERCENTILE))
+
     groups = [[sentences[0]]]
-    for i in range(1, len(sentences)):
-        similarity = _cosine_similarity(embeddings[i - 1], embeddings[i])
-        if similarity >= SEMANTIC_CHUNK_THRESHOLD:
-            groups[-1].append(sentences[i])
-        else:
+    for i, distance in enumerate(distances, start=1):
+        if distance >= breakpoint_distance:
             groups.append([sentences[i]])
+        else:
+            groups[-1].append(sentences[i])
     return [" ".join(g) for g in groups]
 
 

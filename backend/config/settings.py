@@ -18,10 +18,11 @@ CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "150"))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "8"))
-# Cosine similarity between consecutive sentence embeddings below this is
-# treated as a topic shift, starting a new semantic chunk. Lower = fewer,
-# bigger chunks; higher = more, smaller chunks that split on subtler shifts.
-SEMANTIC_CHUNK_THRESHOLD = float(os.getenv("SEMANTIC_CHUNK_THRESHOLD", "0.5"))
+# Percentile of consecutive-sentence embedding distance (within each document)
+# above which a transition is treated as a topic shift and starts a new
+# semantic chunk. Self-calibrating per document/embedding model rather than a
+# fixed similarity cutoff. Lower = more, smaller chunks; higher = fewer, bigger.
+SEMANTIC_BREAKPOINT_PERCENTILE = float(os.getenv("SEMANTIC_BREAKPOINT_PERCENTILE", "90"))
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
