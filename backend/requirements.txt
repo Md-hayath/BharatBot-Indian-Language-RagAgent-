@@ -13,6 +13,7 @@ lingua-language-detector
 sarvamai
 anthropic
 fastapi
+slowapi
 python-multipart
 uvicorn
 python-dotenv

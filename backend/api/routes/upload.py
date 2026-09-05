@@ -2,11 +2,12 @@ import os
 import re
 import shutil
 import tempfile
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Request
 from api.schemas import UploadResponse
+from api.limiter import limiter
 from ingestion.build_vectorstore import ingest_file, load_document
 from tools.language_detector import detect_language
-from config.settings import DATA_RAW_PATH
+from config.settings import DATA_RAW_PATH, RATE_LIMIT_UPLOAD
 from config.languages import get_folder
 
 router = APIRouter()
@@ -19,7 +20,8 @@ def _safe_filename(filename: str) -> str:
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload(file: UploadFile = File(...)):
+@limiter.limit(RATE_LIMIT_UPLOAD)
+async def upload(request: Request, file: UploadFile = File(...)):
     content = await file.read()
     safe_name = _safe_filename(file.filename)
     ext = os.path.splitext(safe_name)[1].lower()
