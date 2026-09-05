@@ -3,7 +3,7 @@ from config.settings import DATA_RAW_PATH
 from ingestion.pdf_loader import load_pdf
 from ingestion.chunker import chunk_text
 from ingestion.embedder import embed_chunks
-from ingestion.vector_store import add_chunks
+from ingestion.vector_store import add_chunks, add_document_record
 
 
 def load_document(file_path: str) -> str:
@@ -19,7 +19,7 @@ def load_document(file_path: str) -> str:
         raise ValueError(f"Unsupported: {ext}")
 
 
-def ingest_file(file_path: str, text: str = None) -> int:
+def ingest_file(file_path: str, text: str = None, language: str = None) -> int:
     print(f"\nIngesting: {file_path}")
     if text is None:
         text = load_document(file_path)
@@ -30,6 +30,7 @@ def ingest_file(file_path: str, text: str = None) -> int:
 
     embeddings = embed_chunks(chunks)
     add_chunks(chunks, embeddings)
+    add_document_record(os.path.basename(file_path), file_path, language, len(chunks))
 
     print(f"Added {len(chunks)} chunks.")
     return len(chunks)

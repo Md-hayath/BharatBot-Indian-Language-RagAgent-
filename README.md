@@ -1,6 +1,4 @@
-# BharatBot-Indian-Language-RagAgent-
-
-# 🇮🇳 BharatBot — Multilingual Indian Language RAG Agent
+# BharatBot — Multilingual Indian Language RAG Agent
 
 <div align="center">
 
@@ -15,40 +13,40 @@
 
 **Upload any document. Ask anything. Get answers in your language.**
 
-*The first open-source RAG agent built natively for India's 22 scheduled languages.*
+*An open-source RAG agent built natively for India's scheduled languages.*
 
-[Live Demo](#) · [Report Bug](https://github.com/yourusername/bharatbot/issues) · [Request Feature](https://github.com/yourusername/bharatbot/issues)
+[Report Bug](https://github.com/Md-hayath/bharatbot/issues) · [Request Feature](https://github.com/Md-hayath/bharatbot/issues)
 
 </div>
 
 ---
 
-## 🌟 What is BharatBot?
+## What is BharatBot?
 
-BharatBot is an **autonomous multilingual document intelligence agent** that allows anyone to upload documents in any Indian language and have natural, contextual conversations about them — in whatever language they are most comfortable with.
+BharatBot is a multilingual document intelligence agent that allows anyone to upload documents in any Indian language and have natural, contextual conversations about them — in whatever language they are most comfortable with.
 
 A farmer in Tamil Nadu can upload a government agricultural scheme PDF written in Tamil and ask questions in Tamil. A lawyer in Mumbai can upload a legal contract in English and get summaries in Hindi. A student in Hyderabad can upload Telugu study material and quiz themselves in Telugu or English.
 
-**BharatBot breaks the language barrier in document intelligence.**
+---
+
+## Key Features
+
+- **Multilingual** — Supports Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Urdu, and English
+- **Any Document Format** — Upload PDF, DOCX, or TXT files in any language
+- **Auto Language Detection** — Detects what language the user is writing in and responds in the same language
+- **Scope Queries to One Document** — Select a specific uploaded document to restrict answers to it, or query across all uploaded documents at once
+- **On-Screen Keyboard** — Built-in popup keyboard for typing in English, Hindi, Kannada, or Urdu (with correct right-to-left input for Urdu) when a native keyboard isn't available
+- **Stateful Conversations** — Remembers context across multiple turns within a session
+- **Semantic Search** — Uses multilingual vector embeddings to find the most relevant content even when query language differs from document language (see [Known Limitations](#known-limitations))
+- **Language-Routed Generation** — Indic-language queries go to Sarvam-30B, English queries go to Azure GPT-4o — each model handles what it's actually best at
+- **Source Attribution** — Every answer cites the exact source document it retrieved from
+- **Strictly Domain-Bound** — Refuses to answer from general knowledge when the uploaded documents don't contain the answer, and treats document content as untrusted data rather than instructions (basic prompt-injection resistance)
+- **Scanned Document Support** — OCR fallback using Tesseract for image-based PDFs
+- **Automatic Fallback** — If the primary model for a language is unavailable, falls back to the other, then to Claude Sonnet as a last resort
 
 ---
 
-## ✨ Key Features
-
-- 🗣️ **Truly Multilingual** — Supports all 22 scheduled Indian languages including Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, Urdu and more
-- 📄 **Any Document Format** — Upload PDF, DOCX, or TXT files in any language
-- 🔄 **Auto Language Detection** — Automatically detects what language the user is writing in and responds in the same language
-- 🧠 **Stateful Conversations** — Remembers context across multiple turns within a session
-- 🔍 **Semantic Search** — Uses multilingual vector embeddings to find the most relevant content even when query language differs from document language (cross-lingual accuracy for lower-resource Indic language pairs is still being validated — see [Known Limitations](#-known-limitations))
-- ⚡ **Language-Routed Generation** — Indic-language queries go to Sarvam-30B, English queries go to Azure GPT-4o — each model handles what it's actually best at
-- 📊 **Source Attribution** — Every answer cites the exact source document it retrieved from
-- 🔒 **Strictly Domain-Bound** — Refuses to answer from general knowledge when the uploaded documents don't contain the answer, and treats document content as untrusted data rather than instructions (basic prompt-injection resistance)
-- 🛡️ **Scanned Document Support** — OCR fallback using Tesseract for image-based PDFs
-- 🔁 **Automatic Fallback** — If the primary model for a language is unavailable, falls back to the other, then to Claude Sonnet as a last resort
-
----
-
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -59,7 +57,7 @@ A farmer in Tamil Nadu can upload a government agricultural scheme PDF written i
                            │ HTTP REST (CORS, browser → API)
 ┌──────────────────────────▼──────────────────────────────────┐
 │                       FASTAPI BACKEND                        │
-│              /upload    /chat    /health                     │
+│           /upload    /chat    /documents    /health          │
 └──────────┬───────────────────────────────┬──────────────────┘
            │                               │
 ┌──────────▼──────────┐      ┌─────────────▼──────────────────┐
@@ -89,11 +87,11 @@ A farmer in Tamil Nadu can upload a government agricultural scheme PDF written i
 
 ---
 
-## 🧠 How It Works — Deep Dive
+## How It Works — Deep Dive
 
 ### Step 1 — Document Ingestion Pipeline
 
-When a user uploads a document, it goes through a 4-stage pipeline:
+When a user uploads a document, it goes through this pipeline:
 
 ```
 Document Upload
@@ -119,13 +117,13 @@ Document Upload
 │         Universal Text Chunker          │
 │                                         │
 │  RecursiveCharacterTextSplitter         │
-│  chunk_size=400, overlap=50             │
-│  separators=["\n\n","\n","।","."," "]  │
+│  chunk_size=1000, overlap=150           │
+│  separators=["\n\n","\n","।","۔","."," "]│
 │                                         │
-│  The Devanagari danda (।) is included  │
-│  as a separator — Hindi and Marathi     │
-│  documents split at natural sentence    │
-│  boundaries automatically              │
+│  The Devanagari danda (।) and Urdu      │
+│  full stop (۔) are included as         │
+│  separators so text splits at natural   │
+│  sentence boundaries automatically      │
 └─────────────────────────────────────────┘
       │
       ▼
@@ -138,7 +136,7 @@ Document Upload
 │  a 1536-dim vector                     │
 │                                         │
 │  Trained across many languages in the  │
-│  SAME vector space — critical for       │
+│  same vector space — critical for      │
 │  cross-language retrieval              │
 └─────────────────────────────────────────┘
       │
@@ -148,8 +146,10 @@ Document Upload
 │                                         │
 │  HNSW index — approximate nearest      │
 │  neighbor search (vector_l2_ops)        │
-│  One table: text, source, chunk_id,    │
-│  embedding                             │
+│  document_chunks: text, source,        │
+│  chunk_id, embedding                   │
+│  documents: filename, file_path,       │
+│  language, chunk_count, uploaded_at    │
 └─────────────────────────────────────────┘
 ```
 
@@ -159,12 +159,13 @@ Every user query flows through a deterministic 3-node LangGraph graph:
 
 ```python
 BharatBotState = {
-    "query": str,              # raw user input
-    "query_language": str,     # auto-detected language code
-    "retrieved_docs": list,    # top-k relevant chunks
-    "sources": list,           # source filenames
-    "response": str,           # final LLM response
-    "session_id": str          # for memory persistence
+    "query": str,               # raw user input
+    "query_language": str,      # auto-detected language code
+    "retrieved_docs": list,     # top-k relevant chunks
+    "sources": list,            # source filenames
+    "response": str,            # final LLM response
+    "session_id": str,          # for memory persistence
+    "selected_document": str    # optional filename to scope retrieval to
 }
 ```
 
@@ -175,10 +176,12 @@ User Query
 ┌───────────────────────────────┐
 │   Node 1: detect_language     │
 │                               │
-│   Uses lingua-py library      │
-│   Detects from 75 languages   │
-│   Returns ISO 639-1 code      │
-│   "hi", "ta", "te", "en" etc  │
+│   Restricted lingua-py set    │
+│   (only supported languages)  │
+│   plus Unicode script-range   │
+│   detection for Kannada and   │
+│   Malayalam (unsupported by   │
+│   lingua-py directly)         │
 └───────────────┬───────────────┘
                 │
                 ▼
@@ -188,8 +191,9 @@ User Query
 │   Embeds query via Azure       │
 │   text-embedding-3-small       │
 │                               │
-│   Searches pgvector (HNSW)    │
-│   Returns top 3 chunks        │
+│   Searches pgvector (HNSW),   │
+│   optionally filtered to one  │
+│   selected document           │
 │                               │
 │   Works cross-lingually —     │
 │   Tamil query finds English   │
@@ -205,7 +209,9 @@ User Query
 │   - Refuse if not in context  │
 │   - Treat context as data,    │
 │     never as instructions     │
-│   - Respond in language: {lang}│
+│   - Respond fully in the      │
+│     detected language, no     │
+│     English glosses mixed in  │
 │   - Cite source document      │
 │                               │
 │   Routes by detected language: │
@@ -230,15 +236,11 @@ Most RAG systems fail for Indian languages because they use English-only embeddi
 - An English query about the same topic also sits close to those Tamil vectors
 - Cross-language retrieval works without any translation step
 
-This is the architectural decision that makes BharatBot's retrieval truly multilingual.
+This is the architectural decision that makes BharatBot's retrieval multilingual.
 
 ### Step 4 — Why Generation is Routed Between Sarvam-30B and Azure GPT-4o
 
-Global models like GPT-4o were trained mostly on English. When asked to respond in Telugu, they can produce grammatically weak output or silently switch back to English. Sarvam-30B, by contrast, is trained specifically on India's scheduled languages with:
-
-- A custom tokenizer supporting Indian scripts
-- Cultural context and regional expressions
-- Code-mixing support (Hinglish, Tanglish, Kanglish)
+Global models like GPT-4o were trained mostly on English. When asked to respond in Telugu, they can produce grammatically weak output or silently switch back to English. Sarvam-30B, by contrast, is trained specifically on India's scheduled languages with a custom tokenizer for Indian scripts, cultural context, and code-mixing support (Hinglish, Tanglish, Kanglish).
 
 So BharatBot routes by the language `detect_language_node` assigns to the query:
 
@@ -250,7 +252,7 @@ Each model handles the languages it's actually strongest at, instead of forcing 
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
 |---|---|---|
@@ -261,8 +263,8 @@ Each model handles the languages it's actually strongest at, instead of forcing 
 | Agent Framework | LangGraph | Stateful multi-node agent |
 | Vector Store | Postgres + pgvector | HNSW approximate nearest-neighbor similarity search |
 | PDF Parsing | PyMuPDF | Text extraction from PDFs |
-| OCR | Tesseract + lang packs | Scanned document support |
-| Language Detection | lingua-py | Accurate Indic language detection |
+| OCR | Tesseract + language packs | Scanned document support |
+| Language Detection | lingua-py + script-range detection | Indic language detection |
 | Backend | FastAPI | REST API server |
 | Frontend | React + Vite + Tailwind CSS | Web interface, served in production via nginx |
 | Memory | LangGraph MemorySaver | Session state management |
@@ -271,7 +273,7 @@ Each model handles the languages it's actually strongest at, instead of forcing 
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 bharatbot/
@@ -291,7 +293,7 @@ bharatbot/
 │   ├── tools/
 │   │   ├── retriever_tool.py  # pgvector search as LangChain tool
 │   │   ├── translator_tool.py # Sarvam Mayura translation API
-│   │   ├── language_detector.py  # lingua-py wrapper + script-range detection
+│   │   ├── language_detector.py  # lingua-py + script-range detection
 │   │   └── disclaimer_tool.py # Source citation appender
 │   ├── agents/
 │   │   ├── state.py           # BharatBotState TypedDict
@@ -304,6 +306,7 @@ bharatbot/
 │   │   └── routes/
 │   │       ├── chat.py        # POST /chat
 │   │       ├── upload.py      # POST /upload
+│   │       ├── documents.py   # GET /documents
 │   │       └── health.py      # GET /health
 │   ├── tests/
 │   │   ├── test_ingestion.py
@@ -323,19 +326,21 @@ bharatbot/
 │   └── src/
 │       ├── App.jsx
 │       ├── lib/
-│       │   ├── api.js         # fetch wrappers for /chat, /upload
-│       │   └── languages.js   # Language display metadata
+│       │   ├── api.js               # fetch wrappers for /chat, /upload, /documents
+│       │   ├── languages.js         # Language display metadata
+│       │   └── keyboardLayouts.js   # On-screen keyboard character sets
 │       └── components/
 │           ├── Header.jsx
-│           ├── Sidebar.jsx    # Upload panel + supported languages
-│           ├── ChatPanel.jsx  # Message list + input bar
-│           └── MessageBubble.jsx
-└── Docker-compose.yaml        # Orchestrates postgres + api + frontend
+│           ├── Sidebar.jsx          # Upload panel, document selector, supported languages
+│           ├── ChatPanel.jsx        # Message list + input bar
+│           ├── MessageBubble.jsx
+│           └── VirtualKeyboard.jsx  # Draggable on-screen keyboard popup
+└── Docker-compose.yaml        # Orchestrates postgres + backend + frontend
 ```
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -349,8 +354,7 @@ bharatbot/
 ### Install Tesseract
 
 **Windows:**
-Download installer from https://github.com/UB-Mannheim/tesseract/wiki
-Add to PATH after installation.
+Download the installer from https://github.com/UB-Mannheim/tesseract/wiki and add it to PATH after installation.
 
 **Mac:**
 ```bash
@@ -449,26 +453,30 @@ Open your browser at **http://localhost:5173** (Vite's dev server port).
 
 ---
 
-## 🐳 Run With Docker
+## Run With Docker
 
 From the repo root:
 ```bash
 docker-compose up --build
 ```
 
-Postgres, the API, and the frontend all start automatically. Open http://localhost:3000 (backend on http://localhost:8000). Ports come from `BACKEND_PORT`/`FRONTEND_PORT` in `.env`.
+Postgres, the backend, and the frontend all start automatically. Open http://localhost:3000 (backend on http://localhost:8000). Ports come from `BACKEND_PORT`/`FRONTEND_PORT` in `.env`.
 
 ---
 
-## 📖 Usage
+## Usage
 
 **1. Upload a document**
 
 Click the upload panel in the sidebar. Supports PDF, DOCX, and TXT in any language. The document is automatically chunked, embedded, and indexed.
 
-**2. Start chatting**
+**2. (Optional) Scope your questions to one document**
 
-Type your question in any Indian language. BharatBot automatically detects your language and responds in the same language.
+Select a specific document from the sidebar list to restrict retrieval to it, or leave "All documents" selected to search everything you've uploaded.
+
+**3. Start chatting**
+
+Type your question in any Indian language — using a physical keyboard, or the built-in on-screen keyboard if you don't have one for that script. BharatBot automatically detects your language and responds in the same language.
 
 **Examples:**
 
@@ -478,17 +486,15 @@ Kannada:  "ಈ ದಾಖಲೆಯ ಮುಖ್ಯ ವಿಷಯ ಏನು?"
 Hindi:    "इस दस्तावेज़ का मुख्य विषय क्या है?"
 Telugu:   "ఈ పత్రంలో ముఖ్యమైన అంశాలు ఏమిటి?"
 Tamil:    "இந்த ஆவணத்தின் முக்கிய கருத்து என்ன?"
-Telugu:   "ఈ పత్రంలో ముఖ్యమైన అంశాలు ఏమిటి?"
-
 ```
 
-**3. Cross-language queries**
+**4. Cross-language queries**
 
 You can upload a Tamil document and ask questions in Hindi. The multilingual embedding model retrieves relevant Tamil content and Sarvam-30B generates the response in Hindi.
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 ### POST /upload
 
@@ -508,16 +514,32 @@ Response:
 }
 ```
 
+### GET /documents
+
+List all indexed documents.
+
+```bash
+curl http://localhost:8000/documents
+```
+
+Response:
+```json
+{
+  "documents": ["document.pdf", "notes.txt"]
+}
+```
+
 ### POST /chat
 
-Send a query and get a response.
+Send a query and get a response. `document` is optional — omit it (or send an empty string) to search across all uploaded documents.
 
 ```bash
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
     "query": "इस दस्तावेज़ में क्या लिखा है?",
-    "session_id": "user-123"
+    "session_id": "user-123",
+    "document": "document.pdf"
   }'
 ```
 
@@ -546,25 +568,27 @@ Response:
 
 ---
 
-## 🌍 Supported Languages
+## Supported Languages
 
 | Language | Native Script | Code | Tesseract Support |
 |---|---|---|---|
-| Hindi | हिन्दी | hi | ✅ |
-| Tamil | தமிழ் | ta | ✅ |
-| Telugu | తెలుగు | te | ✅ |
-| Kannada | ಕನ್ನಡ | kn | ✅ |
-| Malayalam | മലയാളം | ml | ✅ |
-| Bengali | বাংলা | bn | ✅ |
-| Marathi | मराठी | mr | ✅ |
-| Gujarati | ગુજરાતી | gu | ✅ |
-| Punjabi | ਪੰਜਾਬੀ | pa | ✅ |
-| Urdu | اردو | ur | ✅ |
-| English | English | en | ✅ |
+| Hindi | हिन्दी | hi | Yes |
+| Tamil | தமிழ் | ta | Yes |
+| Telugu | తెలుగు | te | Yes |
+| Kannada | ಕನ್ನಡ | kn | Yes |
+| Malayalam | മലയാളം | ml | Yes |
+| Bengali | বাংলা | bn | Yes |
+| Marathi | मराठी | mr | Yes |
+| Gujarati | ગુજરાતી | gu | Yes |
+| Punjabi | ਪੰਜਾਬੀ | pa | Yes |
+| Urdu | اردو | ur | Yes |
+| English | English | en | Yes |
 
 ---
 
-## 🧪 Running Tests
+## Running Tests
+
+From `backend/`:
 
 ```bash
 pytest tests/ -v
@@ -581,42 +605,43 @@ pytest tests/test_api.py -v
 
 ---
 
-## 📊 How This Differs From Standard RAG
+## How This Differs From Standard RAG
 
 | Feature | Standard RAG | BharatBot |
 |---|---|---|
-| Language Support | English only | 22 Indian languages |
+| Language Support | English only | 11 Indian languages |
 | Embedding Model | text-embedding-ada | Azure OpenAI text-embedding-3-small |
-| Cross-lingual Retrieval | ❌ | ✅ |
-| Script Handling | Latin only | Devanagari, Tamil, Telugu, etc. |
-| OCR Support | ❌ | ✅ Tesseract multi-lang |
-| LLM | GPT-4 | Sarvam-30B (Indic) + Azure GPT-4o (English), Claude fallback |
+| Cross-lingual Retrieval | No | Yes |
+| Script Handling | Latin only | Devanagari, Tamil, Telugu, Arabic script, etc. |
+| OCR Support | No | Yes, Tesseract multi-language |
+| LLM | Single general-purpose model | Sarvam-30B (Indic) + Azure GPT-4o (English), Claude fallback |
 | Agent Framework | LangChain | LangGraph stateful |
-| Language Detection | ❌ | lingua-py auto detect |
-| Source Attribution | Basic | With chunk metadata |
+| Language Detection | No | lingua-py + script-range detection |
+| Source Attribution | Basic | With chunk metadata, per-document scoping |
 
 ---
 
-## ⚠️ Known Limitations
+## Known Limitations
 
-- **Cross-lingual retrieval accuracy is unverified for some Indic language pairs (e.g. a Kannada document queried in English).** The retrieval embedding model was recently switched from `multilingual-e5-large` — which was purpose-trained on parallel text across 100+ languages for cross-lingual retrieval — to Azure OpenAI's `text-embedding-3-small`, a strong general-purpose multilingual embedder without published cross-lingual benchmarks for lower-resource Indic languages specifically. The retrieval pipeline (pgvector + shared embedding space) supports cross-lingual search either way; what's unproven is retrieval *quality* for these specific pairs. This is being tracked — see Roadmap.
+- **Cross-lingual retrieval accuracy is unverified for some Indic language pairs** (e.g. a Kannada document queried in English). The retrieval embedding model was switched from `multilingual-e5-large` — purpose-trained on parallel text across 100+ languages for cross-lingual retrieval — to Azure OpenAI's `text-embedding-3-small`, a strong general-purpose multilingual embedder without published cross-lingual benchmarks for lower-resource Indic languages specifically. The retrieval pipeline supports cross-lingual search either way; what's unproven is retrieval *quality* for these specific pairs. This is being tracked — see Roadmap.
+- **Very short, single-word queries in a shared script can be misdetected** (e.g. a lone greeting that exists in both Hindi and Marathi). Full-sentence queries give the language detector enough signal to resolve this correctly.
 
 ---
 
-## 🔮 Roadmap
+## Roadmap
 
-- [ ] Validate cross-lingual retrieval quality under `text-embedding-3-small` for Indic language pairs (e.g. Kannada doc + English query); add translation-assisted retrieval if needed
-- [ ] Voice input support using Sarvam Saaras v3 speech-to-text
-- [ ] Voice output using Sarvam Bulbul v3 text-to-speech
+- [ ] Validate cross-lingual retrieval quality under `text-embedding-3-small` for Indic language pairs; add translation-assisted retrieval if needed
+- [ ] Voice input support using Sarvam Saaras speech-to-text
+- [ ] Voice output using Sarvam Bulbul text-to-speech
 - [ ] WhatsApp integration for rural accessibility
 - [ ] Multi-document comparison queries
 - [ ] Table and chart extraction from PDFs
 - [ ] Fine-tuned retrieval for legal and medical documents
-- [ ] Mobile responsive UI
+- [ ] Rate limiting and abuse protection for public deployments
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome. Please open an issue first to discuss what you would like to change.
 
@@ -636,13 +661,13 @@ git push origin feature/AmazingFeature
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [Sarvam AI](https://sarvam.ai) — for building India's sovereign LLM
 - [AI4Bharat](https://ai4bharat.iitm.ac.in) — for Indic language research
@@ -652,21 +677,10 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 👤 Author
+## Author
 
 **Mohammed Hayath**
 
 - GitHub: [@Md-hayath](https://github.com/Md-hayath)
 - LinkedIn: [Mohammed Hayath](https://linkedin.com/in/mohammed-hayath-b675a0259/)
 - Portfolio: [hayath78.biz](https://www.datascienceportfol.io/hayath4863)
-
----
-
-<div align="center">
-
-⭐ Star this repo if you found it useful
-
-*Built with ❤️ for Bharat*
-
-</div>
-```

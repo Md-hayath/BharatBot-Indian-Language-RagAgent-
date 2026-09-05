@@ -15,7 +15,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-gradient-to-b from-indigo-50/40 via-white to-white">
       <Header />
-      <main className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 flex-col gap-5 px-4 py-6 md:flex-row">
+      <main className="mx-auto flex w-full max-w-6xl min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-6 md:flex-row md:overflow-visible">
         <Sidebar selectedDocument={selectedDocument} onSelectDocument={setSelectedDocument} />
         <ChatPanel
           sessionId={sessionId}

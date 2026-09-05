@@ -42,7 +42,7 @@ async def upload(file: UploadFile = File(...)):
         os.unlink(tmp_path)
         raise
 
-    chunks_added = ingest_file(file_path, text=text)
+    chunks_added = ingest_file(file_path, text=text, language=lang_result["code"])
 
     return UploadResponse(
         message="Document uploaded and indexed successfully",
