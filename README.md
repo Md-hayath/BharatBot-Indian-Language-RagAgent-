@@ -43,10 +43,13 @@ A farmer in Tamil Nadu can upload a government agricultural scheme PDF written i
 - **Strictly Domain-Bound** — Refuses to answer from general knowledge when the uploaded documents don't contain the answer, and treats document content as untrusted data rather than instructions (basic prompt-injection resistance)
 - **Scanned Document Support** — OCR fallback using Tesseract for image-based PDFs
 - **Automatic Fallback** — If the primary model for a language is unavailable, falls back to the other, then to Claude Sonnet as a last resort
+- **Rate Limited** — Per-IP request limits on `/chat` and `/upload` protect against a single visitor or bot running up LLM/embedding API costs
 
 ---
 
 ## Architecture
+
+A rendered, color-coded version of this diagram — showing the ingestion and query pipelines, LLM routing, and data stores — is at [`docs/architecture.html`](docs/architecture.html); open it in a browser.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

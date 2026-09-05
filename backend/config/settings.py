@@ -26,6 +26,11 @@ SEMANTIC_BREAKPOINT_PERCENTILE = float(os.getenv("SEMANTIC_BREAKPOINT_PERCENTILE
 
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
+# Per-IP rate limits (slowapi syntax, e.g. "10/minute") to stop a single
+# visitor or bot from running up LLM/embedding API costs on /chat and /upload.
+RATE_LIMIT_CHAT = os.getenv("RATE_LIMIT_CHAT", "10/minute")
+RATE_LIMIT_UPLOAD = os.getenv("RATE_LIMIT_UPLOAD", "5/minute")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://bharatbot:bharatbot@localhost:5432/bharatbot")
 # text-embedding-3-small's native output is 1536 dims, which fits under
 # pgvector's HNSW index cap of 2000 dims. If you switch to text-embedding-3-large

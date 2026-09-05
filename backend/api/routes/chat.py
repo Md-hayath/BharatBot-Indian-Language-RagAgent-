@@ -1,23 +1,26 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from api.schemas import ChatRequest, ChatResponse
+from api.limiter import limiter
+from config.settings import RATE_LIMIT_CHAT
 from agents.graph import bharatbot_app
 
 router = APIRouter()
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+@limiter.limit(RATE_LIMIT_CHAT)
+async def chat(request: Request, body: ChatRequest):
     state = {
         "messages": [],
-        "query": request.query,
+        "query": body.query,
         "query_language": "",
         "retrieved_docs": [],
         "sources": [],
         "response": "",
-        "session_id": request.session_id,
-        "selected_document": request.document
+        "session_id": body.session_id,
+        "selected_document": body.document
     }
-    config = {"configurable": {"thread_id": request.session_id}}
+    config = {"configurable": {"thread_id": body.session_id}}
     result = bharatbot_app.invoke(state, config)
 
     return ChatResponse(
