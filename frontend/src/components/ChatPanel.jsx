@@ -89,20 +89,19 @@ export default function ChatPanel({ sessionId, messages, setMessages, selectedDo
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-gray-100 p-4">
-        {showKeyboard && (
-          <div className="mb-3">
-            <VirtualKeyboard
-              lang={keyboardLang}
-              setLang={setKeyboardLang}
-              onChar={insertChar}
-              onBackspace={backspace}
-              onSpace={insertSpace}
-              onEnter={handleSend}
-            />
-          </div>
-        )}
+      {showKeyboard && (
+        <VirtualKeyboard
+          lang={keyboardLang}
+          setLang={setKeyboardLang}
+          onChar={insertChar}
+          onBackspace={backspace}
+          onSpace={insertSpace}
+          onEnter={handleSend}
+          onClose={() => setShowKeyboard(false)}
+        />
+      )}
 
+      <div className="border-t border-gray-100 p-4">
         <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-2 py-1.5 focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100">
           <button
             type="button"
