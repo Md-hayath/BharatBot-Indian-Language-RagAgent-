@@ -24,15 +24,47 @@ def get_connection():
             CREATE INDEX IF NOT EXISTS document_chunks_embedding_idx
             ON document_chunks USING hnsw (embedding vector_l2_ops)
         """)
+        _conn.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id SERIAL PRIMARY KEY,
+                filename TEXT NOT NULL UNIQUE,
+                file_path TEXT NOT NULL,
+                language TEXT,
+                chunk_count INTEGER NOT NULL DEFAULT 0,
+                uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+        """)
     return _conn
 
 
 def add_chunks(chunks: list, embeddings) -> None:
     conn = get_connection()
+    sources = {c["source"] for c in chunks}
     with conn.cursor() as cur:
+        # Replace any existing chunks for these filenames instead of piling up
+        # duplicates when the same document is re-uploaded.
+        for source in sources:
+            cur.execute("DELETE FROM document_chunks WHERE source = %s", (source,))
         cur.executemany(
             "INSERT INTO document_chunks (text, source, chunk_id, embedding) VALUES (%s, %s, %s, %s)",
             [(c["text"], c["source"], c["chunk_id"], emb) for c, emb in zip(chunks, embeddings)]
+        )
+
+
+def add_document_record(filename: str, file_path: str, language: str, chunk_count: int) -> None:
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO documents (filename, file_path, language, chunk_count, uploaded_at)
+            VALUES (%s, %s, %s, %s, now())
+            ON CONFLICT (filename) DO UPDATE
+            SET file_path = EXCLUDED.file_path,
+                language = EXCLUDED.language,
+                chunk_count = EXCLUDED.chunk_count,
+                uploaded_at = now()
+            """,
+            (filename, file_path, language, chunk_count)
         )
 
 
@@ -62,5 +94,5 @@ def has_documents() -> bool:
 def list_documents() -> list:
     conn = get_connection()
     with conn.cursor() as cur:
-        cur.execute("SELECT DISTINCT source FROM document_chunks ORDER BY source")
+        cur.execute("SELECT filename FROM documents ORDER BY uploaded_at DESC")
         return [row[0] for row in cur.fetchall()]

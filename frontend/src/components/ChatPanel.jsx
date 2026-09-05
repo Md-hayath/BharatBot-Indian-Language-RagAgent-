@@ -30,7 +30,7 @@ export default function ChatPanel({ sessionId, messages, setMessages, selectedDo
   }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages, loading])
 
   async function handleSend() {

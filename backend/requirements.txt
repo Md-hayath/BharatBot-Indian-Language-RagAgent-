@@ -4,6 +4,7 @@ langchain-community
 langchain-text-splitters
 langchain-anthropic
 psycopg[binary]
+psycopg-pool
 pgvector
 openai
 pymupdf
@@ -21,4 +22,4 @@ pytesseract
 Pillow
 pytest
 httpx
-langgraph-checkpoint-sqlite
+langgraph-checkpoint-postgres
