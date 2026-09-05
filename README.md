@@ -9,6 +9,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-Latest-teal?style=for-the-badge&logo=fastapi)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Latest-red?style=for-the-badge&logo=streamlit)
 ![Sarvam AI](https://img.shields.io/badge/Sarvam--30B-LLM-orange?style=for-the-badge)
+![Azure AI Foundry](https://img.shields.io/badge/Azure_AI_Foundry-GPT--4o-blue?style=for-the-badge&logo=microsoftazure)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 **Upload any document. Ask anything. Get answers in your language.**
@@ -37,11 +38,11 @@ A farmer in Tamil Nadu can upload a government agricultural scheme PDF written i
 - 📄 **Any Document Format** — Upload PDF, DOCX, or TXT files in any language
 - 🔄 **Auto Language Detection** — Automatically detects what language the user is writing in and responds in the same language
 - 🧠 **Stateful Conversations** — Remembers context across multiple turns within a session
-- 🔍 **Semantic Search** — Uses multilingual vector embeddings to find the most relevant content even when query language differs from document language
-- ⚡ **Real-time Streaming** — Fast responses powered by Sarvam-30B with Claude Sonnet fallback
+- 🔍 **Semantic Search** — Uses multilingual vector embeddings to find the most relevant content even when query language differs from document language (cross-lingual accuracy for lower-resource Indic language pairs is still being validated — see [Known Limitations](#-known-limitations))
+- ⚡ **Language-Routed Generation** — Indic-language queries go to Sarvam-30B, English queries go to Azure GPT-4o — each model handles what it's actually best at
 - 📊 **Source Attribution** — Every answer cites the exact source document it retrieved from
 - 🛡️ **Scanned Document Support** — OCR fallback using Tesseract for image-based PDFs
-- 🔁 **Automatic Fallback** — If Sarvam API is unavailable, seamlessly switches to Claude Sonnet
+- 🔁 **Automatic Fallback** — If the primary model for a language is unavailable, falls back to the other, then to Claude Sonnet as a last resort
 
 ---
 
@@ -68,17 +69,19 @@ A farmer in Tamil Nadu can upload a government agricultural scheme PDF written i
 │  Embedder           │      │       ↓                         │
 │  Vector Store       │      │  Node 2: retrieve_docs          │
 │       ↓             │      │       ↓                         │
-│  FAISS Index        │      │  Node 3: generate_response      │
+│  Postgres+pgvector  │      │  Node 3: generate_response      │
 └─────────────────────┘      └──────────────┬─────────────────┘
                                             │
                              ┌──────────────▼─────────────────┐
                              │          LLM LAYER             │
                              │                                 │
-                             │  Primary:  Sarvam-30B           │
-                             │  Fallback: Claude Sonnet        │
+                             │  Indic queries:  Sarvam-30B     │
+                             │  English queries: Azure GPT-4o  │
+                             │  Final fallback:  Claude Sonnet │
                              │                                 │
                              │  Embeddings:                    │
-                             │  multilingual-e5-large          │
+                             │  Azure OpenAI                   │
+                             │  text-embedding-3-small         │
                              └────────────────────────────────┘
 ```
 
@@ -125,24 +128,26 @@ Document Upload
       │
       ▼
 ┌─────────────────────────────────────────┐
-│    multilingual-e5-large Embeddings     │
+│  Azure OpenAI text-embedding-3-small    │
 │                                         │
-│  Each chunk gets prefix "passage: "     │
-│  and is converted to a 1024-dim vector  │
+│  Each chunk is sent to the Azure       │
+│  embeddings deployment (batched at     │
+│  100 chunks/call) and converted into   │
+│  a 1536-dim vector                     │
 │                                         │
-│  This model understands semantic        │
-│  meaning across 100+ languages in the  │
+│  Trained across many languages in the  │
 │  SAME vector space — critical for       │
 │  cross-language retrieval              │
 └─────────────────────────────────────────┘
       │
       ▼
 ┌─────────────────────────────────────────┐
-│           FAISS Vector Store            │
+│      Postgres + pgvector Vector Store   │
 │                                         │
-│  IndexFlatL2 — exact L2 distance search │
-│  Metadata stored separately in pickle   │
-│  Contains: text, source file, chunk_id  │
+│  HNSW index — approximate nearest      │
+│  neighbor search (vector_l2_ops)        │
+│  One table: text, source, chunk_id,    │
+│  embedding                             │
 └─────────────────────────────────────────┘
 ```
 
@@ -178,10 +183,10 @@ User Query
 ┌───────────────────────────────┐
 │   Node 2: retrieve_docs       │
 │                               │
-│   Embeds query with prefix    │
-│   "query: " + user_text       │
+│   Embeds query via Azure       │
+│   text-embedding-3-small       │
 │                               │
-│   Searches FAISS index        │
+│   Searches pgvector (HNSW)    │
 │   Returns top 3 chunks        │
 │                               │
 │   Works cross-lingually —     │
@@ -196,10 +201,11 @@ User Query
 │   System prompt instructs:    │
 │   "Respond in language: {lang}│
 │                               │
-│   Sends context + query       │
-│   to Sarvam-30B               │
-│                               │
-│   On failure → Claude Sonnet  │
+│   Routes by detected language: │
+│   Indic → Sarvam-30B first,   │
+│   English → Azure GPT-4o first │
+│   Other model = fallback,      │
+│   Claude Sonnet = last resort  │
 │                               │
 │   Cites source document       │
 └───────────────┬───────────────┘
@@ -209,28 +215,33 @@ User Query
       in User's Language
 ```
 
-### Step 3 — Why multilingual-e5-large is the Key
+### Step 3 — Why Azure OpenAI text-embedding-3-small for Retrieval
 
 Most RAG systems fail for Indian languages because they use English-only embedding models. When you embed a Hindi sentence with an English model, the vector has no meaningful relationship to similar Hindi content.
 
-`intfloat/multilingual-e5-large` was trained on 100+ languages simultaneously. This means:
+`text-embedding-3-small` was trained across many languages simultaneously. This means:
 
 - A Tamil query vector sits close to relevant Tamil document vectors
 - An English query about the same topic also sits close to those Tamil vectors
 - Cross-language retrieval works without any translation step
 
-This is the architectural decision that makes BharatBot truly multilingual.
+This is the architectural decision that makes BharatBot's retrieval truly multilingual.
 
-### Step 4 — Why Sarvam-30B as the LLM
+### Step 4 — Why Generation is Routed Between Sarvam-30B and Azure GPT-4o
 
-Sarvam-30B was released in February 2026 trained specifically on India's 22 scheduled languages with:
+Global models like GPT-4o were trained mostly on English. When asked to respond in Telugu, they can produce grammatically weak output or silently switch back to English. Sarvam-30B, by contrast, is trained specifically on India's scheduled languages with:
 
-- A custom tokenizer supporting all 12 Indian scripts
+- A custom tokenizer supporting Indian scripts
 - Cultural context and regional expressions
 - Code-mixing support (Hinglish, Tanglish, Kanglish)
-- 32,000 token context window for real-time conversations
 
-Global models like GPT-4 were trained mostly on English. When asked to respond in Telugu, they often produce grammatically weak output or silently switch back to English. Sarvam-30B was built from the ground up for this exact use case.
+So BharatBot routes by the language `detect_language_node` assigns to the query:
+
+- **Indic-language queries** (Hindi, Tamil, Telugu, Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi) → **Sarvam-30B** first, Azure GPT-4o as fallback
+- **English queries** → **Azure GPT-4o** first, Sarvam-30B as fallback
+- **Claude Sonnet** is the final fallback for either path if both primary models fail
+
+Each model handles the languages it's actually strongest at, instead of forcing one model to cover everything.
 
 ---
 
@@ -238,11 +249,12 @@ Global models like GPT-4 were trained mostly on English. When asked to respond i
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| LLM Primary | Sarvam-30B | Indic language generation |
-| LLM Fallback | Claude Sonnet | English and fallback generation |
-| Embeddings | multilingual-e5-large | Cross-lingual semantic search |
+| LLM (Indic languages) | Sarvam-30B | Primary model for Hindi, Tamil, Telugu, and other scheduled Indian languages |
+| LLM (English) | Azure GPT-4o (Azure AI Foundry) | Primary model for English queries |
+| LLM Fallback | Claude Sonnet | Last-resort generation if both primary models fail |
+| Embeddings | Azure OpenAI text-embedding-3-small | Cross-lingual semantic search |
 | Agent Framework | LangGraph | Stateful multi-node agent |
-| Vector Store | FAISS | Fast similarity search |
+| Vector Store | Postgres + pgvector | HNSW approximate nearest-neighbor similarity search |
 | PDF Parsing | PyMuPDF | Text extraction from PDFs |
 | OCR | Tesseract + lang packs | Scanned document support |
 | Language Detection | lingua-py | Accurate Indic language detection |
@@ -263,16 +275,16 @@ bharatbot/
 │   └── languages.py          # Language codes, flags, Tesseract codes
 ├── data/
 │   ├── raw/                  # Uploaded documents by language
-│   ├── processed/            # Cleaned text files
-│   └── vector_store/         # FAISS index + metadata
+│   └── processed/            # Cleaned text files
 ├── ingestion/
 │   ├── pdf_loader.py         # PyMuPDF + OCR fallback
 │   ├── ocr_loader.py         # Tesseract multi-language OCR
 │   ├── chunker.py            # Universal text splitter
-│   ├── embedder.py           # multilingual-e5-large wrapper
+│   ├── embedder.py           # Azure OpenAI text-embedding-3-small wrapper
+│   ├── vector_store.py       # Postgres + pgvector connection, schema, search
 │   └── build_vectorstore.py  # Ingestion pipeline entry point
 ├── tools/
-│   ├── retriever_tool.py     # FAISS search as LangChain tool
+│   ├── retriever_tool.py     # pgvector search as LangChain tool
 │   ├── translator_tool.py    # Sarvam Mayura translation API
 │   ├── language_detector.py  # lingua-py wrapper
 │   └── disclaimer_tool.py    # Source citation appender
@@ -376,12 +388,22 @@ ANTHROPIC_API_KEY=your_anthropic_key
 LANGCHAIN_API_KEY=your_langsmith_key
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_PROJECT=bharatbot
+
+AZURE_OPENAI_API_KEY=your_azure_key
+AZURE_OPENAI_ENDPOINT=https://<your-resource-name>.openai.azure.com/openai/v1
+AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
+
+DATABASE_URL=postgresql://bharatbot:bharatbot@localhost:5432/bharatbot
 ```
 
 Get your keys:
 - Sarvam API: https://dashboard.sarvam.ai
 - Anthropic API: https://console.anthropic.com
+- Azure AI Foundry: https://ai.azure.com — deploy a `gpt-4o` and a `text-embedding-3-small` model in your Foundry project, then copy the project's unified `/openai/v1` endpoint and key
 - LangSmith: https://smith.langchain.com
+
+`DATABASE_URL` points at the `postgres` service that ships in `Docker-compose.yaml` (pgvector-enabled Postgres). Running outside Docker? Start a local Postgres with the `pgvector` extension yourself and point this at it instead.
 
 **5. Run the application**
 
@@ -392,10 +414,10 @@ uvicorn api.main:app --reload --port 8000
 
 Terminal 2 — Frontend:
 ```bash
-streamlit run ui/app.py
+streamlit run ui/app.py --server.port 3000
 ```
 
-Open your browser at **http://localhost:8501**
+Open your browser at **http://localhost:3000**
 
 ---
 
@@ -405,7 +427,7 @@ Open your browser at **http://localhost:8501**
 docker-compose up --build
 ```
 
-Both API and UI start automatically. Open http://localhost:8501
+Both API and UI start automatically. Open http://localhost:3000 (backend on http://localhost:8000). Ports come from `BACKEND_PORT`/`FRONTEND_PORT` in `.env`.
 
 ---
 
@@ -535,24 +557,30 @@ pytest tests/test_api.py -v
 | Feature | Standard RAG | BharatBot |
 |---|---|---|
 | Language Support | English only | 22 Indian languages |
-| Embedding Model | text-embedding-ada | multilingual-e5-large |
+| Embedding Model | text-embedding-ada | Azure OpenAI text-embedding-3-small |
 | Cross-lingual Retrieval | ❌ | ✅ |
 | Script Handling | Latin only | Devanagari, Tamil, Telugu, etc. |
 | OCR Support | ❌ | ✅ Tesseract multi-lang |
-| LLM | GPT-4 | Sarvam-30B + Claude fallback |
+| LLM | GPT-4 | Sarvam-30B (Indic) + Azure GPT-4o (English), Claude fallback |
 | Agent Framework | LangChain | LangGraph stateful |
 | Language Detection | ❌ | lingua-py auto detect |
 | Source Attribution | Basic | With chunk metadata |
 
 ---
 
+## ⚠️ Known Limitations
+
+- **Cross-lingual retrieval accuracy is unverified for some Indic language pairs (e.g. a Kannada document queried in English).** The retrieval embedding model was recently switched from `multilingual-e5-large` — which was purpose-trained on parallel text across 100+ languages for cross-lingual retrieval — to Azure OpenAI's `text-embedding-3-small`, a strong general-purpose multilingual embedder without published cross-lingual benchmarks for lower-resource Indic languages specifically. The retrieval pipeline (pgvector + shared embedding space) supports cross-lingual search either way; what's unproven is retrieval *quality* for these specific pairs. This is being tracked — see Roadmap.
+
+---
+
 ## 🔮 Roadmap
 
+- [ ] Validate cross-lingual retrieval quality under `text-embedding-3-small` for Indic language pairs (e.g. Kannada doc + English query); add translation-assisted retrieval if needed
 - [ ] Voice input support using Sarvam Saaras v3 speech-to-text
 - [ ] Voice output using Sarvam Bulbul v3 text-to-speech
 - [ ] WhatsApp integration for rural accessibility
 - [ ] Multi-document comparison queries
-- [ ] Pinecone vector store for production scale
 - [ ] Table and chart extraction from PDFs
 - [ ] Fine-tuned retrieval for legal and medical documents
 - [ ] Mobile responsive UI
@@ -590,8 +618,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - [Sarvam AI](https://sarvam.ai) — for building India's sovereign LLM
 - [AI4Bharat](https://ai4bharat.iitm.ac.in) — for Indic language research
 - [LangChain](https://langchain.com) — for the LangGraph agent framework
-- [Hugging Face](https://huggingface.co) — for multilingual-e5-large embeddings
-- [FAISS](https://github.com/facebookresearch/faiss) — for vector similarity search
+- [Microsoft Azure AI Foundry](https://ai.azure.com) — for GPT-4o and text-embedding-3-small
+- [pgvector](https://github.com/pgvector/pgvector) — for vector similarity search in Postgres
 
 ---
 

@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
-
-API_URL = "http://localhost:8000"
+from config.settings import API_URL
 
 
 def render_upload_panel():
@@ -22,8 +21,10 @@ def render_upload_panel():
                 if "files" not in st.session_state:
                     st.session_state.files = []
                 st.session_state.files.append(data["filename"])
+            elif res.status_code >= 500:
+                st.error("Upload failed: the server hit an error while processing the document. Check the API logs for details.")
             else:
-                st.error("Upload failed. Is the API running on port 8000?")
+                st.error(f"Upload failed ({res.status_code}): {res.text}")
 
     if st.session_state.get("files"):
         st.markdown("**Indexed documents:**")

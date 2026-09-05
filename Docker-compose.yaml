@@ -1,23 +1,67 @@
-version: "3.9"
 services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=bharatbot
+      - POSTGRES_PASSWORD=bharatbot
+      - POSTGRES_DB=bharatbot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bharatbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bharatbot-network
+
   api:
     build: .
+    restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:${BACKEND_PORT:-8000}"
     volumes:
       - ./data:/app/data
     env_file:
       - .env
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_URL=postgresql://bharatbot:bharatbot@postgres:5432/bharatbot
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn api.main:app --host 0.0.0.0 --port ${BACKEND_PORT:-8000}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${BACKEND_PORT:-8000}/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - bharatbot-network
 
   ui:
     build: .
+    restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     env_file:
       - .env
     environment:
-      - API_URL=http://api:8000
-    command: streamlit run ui/app.py --server.address 0.0.0.0
+      - API_URL=http://api:${BACKEND_PORT:-8000}
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    command: streamlit run ui/app.py --server.address 0.0.0.0 --server.port ${FRONTEND_PORT:-3000}
+    networks:
+      - bharatbot-network
+
+networks:
+  bharatbot-network:
+    driver: bridge
+
+volumes:
+  pgdata:

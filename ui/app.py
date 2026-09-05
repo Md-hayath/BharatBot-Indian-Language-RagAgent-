@@ -8,8 +8,7 @@ import requests
 from ui.components.upload_panel import render_upload_panel
 from ui.components.chat_window import render_chat_history
 from ui.components.language_selector import render_supported_languages
-
-API_URL = "http://localhost:8000"
+from config.settings import API_URL
 
 st.set_page_config(page_title="BharatBot 🇮🇳", page_icon="🇮🇳", layout="wide")
 st.title("🇮🇳 BharatBot")

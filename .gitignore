@@ -230,4 +230,4 @@ data/processed/
 data/vector_store/
 .DS_Store
 *.egg-info/
-dist/
+dist/docker-build.log

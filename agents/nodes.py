@@ -1,22 +1,32 @@
-import os
-import faiss
-import pickle
-import numpy as np
-
 from config.settings import (
     SARVAM_API_KEY, ANTHROPIC_API_KEY,
     SARVAM_MODEL, CLAUDE_MODEL,
-    INDEX_FILE, META_FILE, TOP_K_RESULTS
+    AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_CHAT_DEPLOYMENT,
+    TOP_K_RESULTS
 )
 from tools.language_detector import detect_language
 from ingestion.embedder import embed_query
+from ingestion.vector_store import search, has_documents
 from agents.state import BharatBotState
+from config.languages import LANGUAGE_CONFIG
 
+from openai import OpenAI
 from sarvamai import SarvamAI
 from anthropic import Anthropic
 
+# Azure's unified v1 API endpoint (".../openai/v1") works directly with the
+# standard OpenAI client via base_url - no api_version needed.
+azure_client = OpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    base_url=AZURE_OPENAI_ENDPOINT,
+)
 sarvam = SarvamAI(api_subscription_key=SARVAM_API_KEY)
 claude = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# Sarvam-30B is trained specifically on Indian languages, so it's the
+# primary model for them; Azure GPT-4o is primary for everything else.
+INDIC_LANGUAGES = set(LANGUAGE_CONFIG.keys()) - {"en"}
 
 
 def detect_language_node(state: BharatBotState) -> BharatBotState:
@@ -26,25 +36,16 @@ def detect_language_node(state: BharatBotState) -> BharatBotState:
 
 
 def retrieve_docs_node(state: BharatBotState) -> BharatBotState:
-    if not os.path.exists(INDEX_FILE):
+    if not has_documents():
         state["retrieved_docs"] = []
         state["sources"] = []
         return state
 
-    q_vec = embed_query(state["query"]).astype("float32").reshape(1, -1)
-    index = faiss.read_index(INDEX_FILE)
-    with open(META_FILE, "rb") as f:
-        metadata = pickle.load(f)
+    q_vec = embed_query(state["query"])
+    results = search(q_vec, TOP_K_RESULTS)
 
-    _, indices = index.search(q_vec, TOP_K_RESULTS)
-    docs, sources = [], []
-    for idx in indices[0]:
-        if 0 <= idx < len(metadata):
-            docs.append(metadata[idx]["text"])
-            sources.append(metadata[idx]["source"])
-
-    state["retrieved_docs"] = docs
-    state["sources"] = list(set(sources))
+    state["retrieved_docs"] = [text for text, source in results]
+    state["sources"] = list({source for text, source in results})
     return state
 
 
@@ -65,23 +66,39 @@ Always respond in the exact same language the user wrote in.
 Cite the source document at the end."""
 
     user_message = f"Context:\n{context}\n\nQuestion: {query}"
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message}
+    ]
 
-    try:
-        resp = sarvam.chat.completions(
-            model=SARVAM_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ]
+    def call_azure():
+        resp = azure_client.chat.completions.create(
+            model=AZURE_OPENAI_CHAT_DEPLOYMENT,
+            messages=messages
         )
-        state["response"] = resp.choices[0].message.content
-    except Exception:
+        return resp.choices[0].message.content
+
+    def call_sarvam():
+        resp = sarvam.chat.completions(model=SARVAM_MODEL, messages=messages)
+        return resp.choices[0].message.content
+
+    def call_claude():
         resp = claude.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=1024,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}]
         )
-        state["response"] = resp.content[0].text
+        return resp.content[0].text
+
+    primary, secondary = (call_sarvam, call_azure) if lang in INDIC_LANGUAGES else (call_azure, call_sarvam)
+
+    try:
+        state["response"] = primary()
+    except Exception:
+        try:
+            state["response"] = secondary()
+        except Exception:
+            state["response"] = call_claude()
 
     return state

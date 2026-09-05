@@ -1,14 +1,9 @@
 import os
-import faiss
-import pickle
-import numpy as np
-from config.settings import (
-    DATA_RAW_PATH, VECTOR_STORE_PATH,
-    INDEX_FILE, META_FILE
-)
+from config.settings import DATA_RAW_PATH
 from ingestion.pdf_loader import load_pdf
 from ingestion.chunker import chunk_text
 from ingestion.embedder import embed_chunks
+from ingestion.vector_store import add_chunks
 
 
 def load_document(file_path: str) -> str:
@@ -24,33 +19,17 @@ def load_document(file_path: str) -> str:
         raise ValueError(f"Unsupported: {ext}")
 
 
-def ingest_file(file_path: str) -> int:
+def ingest_file(file_path: str, text: str = None) -> int:
     print(f"\nIngesting: {file_path}")
-    text = load_document(file_path)
+    if text is None:
+        text = load_document(file_path)
     chunks = chunk_text(text, os.path.basename(file_path))
     if not chunks:
         print("No chunks extracted.")
         return 0
 
-    embeddings = embed_chunks(chunks).astype("float32")
-    dim = embeddings.shape[1]
-
-    os.makedirs(VECTOR_STORE_PATH, exist_ok=True)
-
-    if os.path.exists(INDEX_FILE):
-        index = faiss.read_index(INDEX_FILE)
-        with open(META_FILE, "rb") as f:
-            metadata = pickle.load(f)
-    else:
-        index = faiss.IndexFlatL2(dim)
-        metadata = []
-
-    index.add(embeddings)
-    metadata.extend(chunks)
-
-    faiss.write_index(index, INDEX_FILE)
-    with open(META_FILE, "wb") as f:
-        pickle.dump(metadata, f)
+    embeddings = embed_chunks(chunks)
+    add_chunks(chunks, embeddings)
 
     print(f"Added {len(chunks)} chunks.")
     return len(chunks)
@@ -59,6 +38,7 @@ def ingest_file(file_path: str) -> int:
 def build_from_raw_folder():
     supported = [".pdf", ".docx", ".txt"]
     total = 0
+    os.makedirs(DATA_RAW_PATH, exist_ok=True)
     for lang_folder in os.listdir(DATA_RAW_PATH):
         folder_path = os.path.join(DATA_RAW_PATH, lang_folder)
         if not os.path.isdir(folder_path):
