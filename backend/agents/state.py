@@ -9,3 +9,4 @@ class BharatBotState(TypedDict):
     sources: List[str]
     response: str
     session_id: str
+    selected_document: str

@@ -36,13 +36,19 @@ def add_chunks(chunks: list, embeddings) -> None:
         )
 
 
-def search(query_embedding, top_k: int) -> list:
+def search(query_embedding, top_k: int, source: str = None) -> list:
     conn = get_connection()
     with conn.cursor() as cur:
-        cur.execute(
-            "SELECT text, source FROM document_chunks ORDER BY embedding <-> %s LIMIT %s",
-            (query_embedding, top_k)
-        )
+        if source:
+            cur.execute(
+                "SELECT text, source FROM document_chunks WHERE source = %s ORDER BY embedding <-> %s LIMIT %s",
+                (source, query_embedding, top_k)
+            )
+        else:
+            cur.execute(
+                "SELECT text, source FROM document_chunks ORDER BY embedding <-> %s LIMIT %s",
+                (query_embedding, top_k)
+            )
         return cur.fetchall()
 
 
@@ -51,3 +57,10 @@ def has_documents() -> bool:
     with conn.cursor() as cur:
         cur.execute("SELECT EXISTS (SELECT 1 FROM document_chunks LIMIT 1)")
         return cur.fetchone()[0]
+
+
+def list_documents() -> list:
+    conn = get_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT source FROM document_chunks ORDER BY source")
+        return [row[0] for row in cur.fetchall()]

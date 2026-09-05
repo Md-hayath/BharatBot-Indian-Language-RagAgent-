@@ -42,7 +42,7 @@ def retrieve_docs_node(state: BharatBotState) -> BharatBotState:
         return state
 
     q_vec = embed_query(state["query"])
-    results = search(q_vec, TOP_K_RESULTS)
+    results = search(q_vec, TOP_K_RESULTS, source=state.get("selected_document") or None)
 
     state["retrieved_docs"] = [text for text, source in results]
     state["sources"] = list({source for text, source in results})

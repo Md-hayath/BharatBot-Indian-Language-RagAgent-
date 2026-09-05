@@ -14,7 +14,8 @@ async def chat(request: ChatRequest):
         "retrieved_docs": [],
         "sources": [],
         "response": "",
-        "session_id": request.session_id
+        "session_id": request.session_id,
+        "selected_document": request.document
     }
     config = {"configurable": {"thread_id": request.session_id}}
     result = bharatbot_app.invoke(state, config)

@@ -5,6 +5,7 @@ from typing import List
 class ChatRequest(BaseModel):
     query: str
     session_id: str = "default"
+    document: str = ""
 
 
 class ChatResponse(BaseModel):
@@ -17,3 +18,7 @@ class UploadResponse(BaseModel):
     message: str
     chunks_added: int
     filename: str
+
+
+class DocumentListResponse(BaseModel):
+    documents: List[str]
