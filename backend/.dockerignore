@@ -1,15 +1,10 @@
 .env
 .env.example
-.git
-.gitignore
 __pycache__/
 *.pyc
 venv/
 .venv/
 data/
-docker-build.log
-docker-up.log
 .pytest_cache/
 .dockerignore
 Dockerfile
-Docker-compose.yaml

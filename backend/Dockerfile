@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN mkdir -p data/raw/hindi data/raw/tamil data/raw/telugu \
     data/raw/english data/processed
-EXPOSE 8000 3000
+EXPOSE 8000

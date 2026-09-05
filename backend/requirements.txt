@@ -12,8 +12,8 @@ lingua-language-detector
 sarvamai
 anthropic
 fastapi
+python-multipart
 uvicorn
-streamlit
 python-dotenv
 pydantic
 langsmith

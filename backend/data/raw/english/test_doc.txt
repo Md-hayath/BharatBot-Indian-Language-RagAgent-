@@ -1,0 +1,1 @@
+BharatBot is a multilingual RAG agent for Indian languages. It supports Hindi, Tamil, Telugu, Kannada, and more.

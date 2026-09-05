@@ -230,4 +230,13 @@ data/processed/
 data/vector_store/
 .DS_Store
 *.egg-info/
-dist/docker-build.log
+dist/
+docker-build.log
+docker-up.log
+docker-redeploy*.log
+
+# Frontend (React + Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local

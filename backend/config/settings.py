@@ -19,7 +19,7 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "400"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "3"))
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://bharatbot:bharatbot@localhost:5432/bharatbot")
 # text-embedding-3-small's native output is 1536 dims, which fits under
